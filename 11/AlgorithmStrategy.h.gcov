@@ -1,0 +1,18 @@
+        -:    0:Source:AlgorithmStrategy.h
+        -:    1:#pragma once
+        -:    2:#include <string>
+        -:    3:class Graph;
+        -:    4:
+        -:    5:class AlgorithmStrategy {
+        -:    6:public:
+      12*:    7:    virtual ~AlgorithmStrategy() = default;
+------------------
+_ZN17AlgorithmStrategyD0Ev:
+    #####:    7:    virtual ~AlgorithmStrategy() = default;
+------------------
+_ZN17AlgorithmStrategyD2Ev:
+       12:    7:    virtual ~AlgorithmStrategy() = default;
+------------------
+        -:    8:    // מריץ אלגוריתם ומחזיר תוצאה כטקסט מוכן לתשובה ללקוח
+        -:    9:    virtual std::string run(const Graph& g) = 0;
+        -:   10:};

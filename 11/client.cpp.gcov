@@ -1,0 +1,112 @@
+        -:    0:Source:client.cpp
+        -:    1:// client.cpp
+        -:    2:#include <iostream>
+        -:    3:#include <string>
+        -:    4:#include <cstring>
+        -:    5:#include <cstdlib>
+        -:    6:#include <unistd.h>
+        -:    7:#include <arpa/inet.h>
+        -:    8:#include <sys/socket.h>
+        -:    9:#include <netinet/in.h>
+        -:   10:using namespace std;
+        -:   11:
+        -:   12:enum { V_SET = 1<<0, E_SET = 1<<1, S_SET = 1<<2 };
+        -:   13:enum { ALL_SET = V_SET | E_SET | S_SET };
+        -:   14:
+    #####:   15:static void usage(const char* prog) {
+        -:   16:    std::cerr << "Usage: " << prog
+        -:   17:              << " [-h <host=127.0.0.1>] [-p <port=8080>] -v <vertices> -e <edges> -s <seed>\n"
+    #####:   18:              << "Example: " << prog << " -h 127.0.0.1 -p 8080 -v 6 -e 8 -s 1234\n";
+    #####:   19:    std::exit(1);
+        -:   20:}
+        -:   21:
+        2:   22:int main(int argc, char* argv[]) {
+        2:   23:    std::string host = "127.0.0.1";
+        2:   24:    int port = 8080;
+        2:   25:    int V = -1, E = -1;
+        2:   26:    unsigned int S = 0;
+        2:   27:    int mask = 0;
+        -:   28:   // int isManual = 0;
+        2:   29:    string A;
+        2:   30:    string req;
+        -:   31:
+        -:   32:    int opt;
+        7:   33:    while ((opt = getopt(argc, argv, "h:p:v:e:s:a:")) != -1) {
+        5:   34:        switch (opt) {
+        1:   35:            case 'h': host = optarg; break;
+        1:   36:            case 'p': port = std::atoi(optarg); break;
+        1:   37:            case 'v': V = std::atoi(optarg); mask |= V_SET; break;
+        1:   38:            case 'e': E = std::atoi(optarg); mask |= E_SET; break;
+        1:   39:            case 's': S = static_cast<unsigned int>(std::strtoul(optarg, nullptr, 10)); mask |= S_SET; break;
+        -:   40:            //case 'a': A = optarg; break;
+    #####:   41:            default: usage(argv[0]);
+        -:   42:        }
+        -:   43:    }
+        -:   44:
+       2*:   45:    if(mask != 0 && mask != ALL_SET) usage(argv[0]);
+        -:   46:
+        3:   47:    if(mask == ALL_SET) req = std::to_string(V) + " " + std::to_string(E) + " " + std::to_string(S) +
+        1:   48:    " " + A + "\n";
+        -:   49:
+        2:   50:    if(mask == 0) req = "auto\n";
+        -:   51:
+        -:   52:    //if (V <= 0 || E < 0) usage(argv[0]);
+        -:   53:
+        -:   54:
+        -:   55:
+        -:   56:
+        -:   57:    // 1) יצירת סוקט TCP
+        2:   58:    int sockfd = ::socket(AF_INET, SOCK_STREAM, 0);
+        2:   59:    if (sockfd < 0) {
+    #####:   60:        perror("socket");
+    #####:   61:        return 1;
+        -:   62:    }
+        -:   63:
+        -:   64:    // 2) בניית כתובת השרת
+        2:   65:    sockaddr_in serv{};
+        2:   66:    serv.sin_family = AF_INET;
+        2:   67:    serv.sin_port = htons(port);
+        2:   68:    if (::inet_pton(AF_INET, host.c_str(), &serv.sin_addr) <= 0) {
+    #####:   69:        std::cerr << "Invalid address: " << host << "\n";
+    #####:   70:        ::close(sockfd);
+    #####:   71:        return 1;
+        -:   72:    }
+        -:   73:
+        -:   74:    // 3) התחברות
+        2:   75:    if (::connect(sockfd, reinterpret_cast<sockaddr*>(&serv), sizeof(serv)) < 0) {
+    #####:   76:        perror("connect");
+    #####:   77:        ::close(sockfd);
+    #####:   78:        return 1;
+        -:   79:    }
+        -:   80:
+        -:   81:    // 4) שליחת הבקשה בפורמט: "V E S\n"
+        -:   82:    // std::string req = std::to_string(V) + " " + std::to_string(E) + " " + std::to_string(S) +
+        -:   83:    // " " + A + "\n";
+        2:   84:    ssize_t sent = ::send(sockfd, req.data(), req.size(), 0);
+        2:   85:    if (sent < 0) {
+    #####:   86:        perror("send");
+    #####:   87:        ::close(sockfd);
+    #####:   88:        return 1;
+        -:   89:    }
+        -:   90:
+        -:   91:    // 5) קבלת התשובה עד שהשרת סוגר
+        4:   92:    std::string reply;
+        -:   93:    char buf[1024];
+        -:   94:    for (;;) {
+        4:   95:        ssize_t n = ::recv(sockfd, buf, sizeof(buf)-1, 0);
+        4:   96:        if (n < 0) {
+    #####:   97:            perror("recv");
+    #####:   98:            ::close(sockfd);
+    #####:   99:            return 1;
+        -:  100:        }
+        4:  101:        if (n == 0) break;               // השרת סגר
+        2:  102:        buf[n] = '\0';
+        2:  103:        reply += buf;
+        2:  104:    }
+        -:  105:
+        2:  106:    ::close(sockfd);
+        -:  107:
+        -:  108:    // 6) הדפסת התשובה (למשל "NO" או "YES 0->1->2->0")
+        2:  109:    std::cout << reply << std::endl;
+        2:  110:    return 0;
+        2:  111:}

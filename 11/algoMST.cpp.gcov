@@ -1,0 +1,71 @@
+        -:    0:Source:algoMST.cpp
+        -:    1:// ===== algoMST.cpp =====
+        -:    2:#include "graph.h"
+        -:    3:#include <algorithm>
+        -:    4:#include <stack>
+        -:    5:#include <numeric>
+        -:    6:#include "algoMST.h"
+        -:    7:
+        -:    8:
+        -:    9:// ---------- 1) MST total weight (Kruskal) ----------
+        -:   10:namespace
+        -:   11:{
+        -:   12:    struct DSU
+        -:   13:    {
+        -:   14:        vector<int> p, r;
+        2:   15:        DSU(int n) : p(n), r(n, 0) { iota(p.begin(), p.end(), 0); }
+       58:   16:        int f(int x) { return p[x] == x ? x : p[x] = f(p[x]); }
+       19:   17:        bool unite(int a, int b)
+        -:   18:        {
+       19:   19:            a = f(a);
+       19:   20:            b = f(b);
+       19:   21:            if (a == b)
+        8:   22:                return false;
+       11:   23:            if (r[a] < r[b])
+        3:   24:                swap(a, b);
+       11:   25:            p[b] = a;
+       11:   26:            if (r[a] == r[b])
+        4:   27:                r[a]++;
+       11:   28:            return true;
+        -:   29:        }
+        -:   30:    };
+        -:   31:}
+        -:   32:
+        2:   33:long long algoMST::mstWeight(const Graph &g)
+        -:   34:{
+        2:   35:    if (g.directed())
+    #####:   36:        return -1; // define MST only for undirected here
+        2:   37:    const auto &M = g.getMatrix();
+        2:   38:    int n = g.vertexCount();
+        -:   39:    struct E
+        -:   40:    {
+        -:   41:        int u, v, w;
+        -:   42:    };
+        2:   43:    vector<E> edges;
+        2:   44:    edges.reserve(n * n);
+       15:   45:    for (int i = 0; i < n; ++i)
+       49:   46:        for (int j = i + 1; j < n; ++j)
+       36:   47:            if (M[i][j] != 0)
+       25:   48:                edges.push_back({i, j, M[i][j]});
+        2:   49:    if (edges.empty())
+    #####:   50:        return n <= 1 ? 0 : -1; // no edges but multiple comps
+        -:   51:    // Kruskal
+        2:   52:    sort(edges.begin(), edges.end(), [](const E &a, const E &b)
+       66:   53:         { return a.w < b.w; });
+        2:   54:    DSU d(n);
+        2:   55:    long long total = 0;
+        2:   56:    int used = 0;
+       19:   57:    for (const auto &e : edges)
+        -:   58:    {
+       19:   59:        if (d.unite(e.u, e.v))
+        -:   60:        {
+       11:   61:            total += e.w;
+       11:   62:            used++;
+       11:   63:            if (used == n - 1)
+        2:   64:                break;
+        -:   65:        }
+        -:   66:    }
+        2:   67:    if (used != n - 1)
+    #####:   68:        return -1; // not connected
+        2:   69:    return total;
+        2:   70:}

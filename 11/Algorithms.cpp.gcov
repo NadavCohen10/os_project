@@ -1,0 +1,122 @@
+        -:    0:Source:Algorithms.cpp
+        -:    1:// ===== Algorithms.cpp =====
+        -:    2:#include "Algorithms.h"
+        -:    3:#include "graph.h"
+        -:    4:#include <algorithm>
+        -:    5:#include <stack>
+        -:    6:#include <numeric>
+        -:    7:
+        -:    8:
+        -:    9:// ---------- Euler (given) ----------
+    #####:   10:void Algorithms::dfsOnEdges(const vector<vector<int>> &m, int u, vector<int> &vis)
+        -:   11:{
+    #####:   12:    int n = (int)m.size();
+    #####:   13:    vis[u] = 1;
+    #####:   14:    for (int v = 0; v < n; ++v)
+    #####:   15:        if (m[u][v] && !vis[v])
+    #####:   16:            dfsOnEdges(m, v, vis);
+    #####:   17:}
+        -:   18:
+        4:   19:bool Algorithms::hasEulerCircuit(const Graph &g)
+        -:   20:{
+        4:   21:    const auto &M = g.getMatrix();
+        4:   22:    int V = g.vertexCount();
+       4*:   23:    for (int i = 0; i < V; ++i)
+        -:   24:    {
+        4:   25:        int deg = 0;
+       30:   26:        for (int j = 0; j < V; ++j)
+       26:   27:            deg += M[i][j] != 0; // degree = number of nonzero edges
+        4:   28:        if (deg % 2 != 0)
+        4:   29:            return false;
+        -:   30:    }
+    #####:   31:    int start = -1;
+    #####:   32:    for (int i = 0; i < V; ++i)
+        -:   33:    {
+    #####:   34:        int deg = 0;
+    #####:   35:        for (int j = 0; j < V; ++j)
+    #####:   36:            deg += M[i][j] != 0;
+    #####:   37:        if (deg > 0)
+        -:   38:        {
+    #####:   39:            start = i;
+    #####:   40:            break;
+        -:   41:        }
+        -:   42:    }
+    #####:   43:    if (start == -1)
+    #####:   44:        return true;
+    #####:   45:    vector<int> vis(V, 0);
+    #####:   46:    dfsOnEdges(M, start, vis);
+    #####:   47:    for (int i = 0; i < V; ++i)
+        -:   48:    {
+    #####:   49:        int deg = 0;
+    #####:   50:        for (int j = 0; j < V; ++j)
+    #####:   51:            deg += M[i][j] != 0;
+    #####:   52:        if (deg > 0 && !vis[i])
+    #####:   53:            return false;
+        -:   54:    }
+    #####:   55:    return true;
+    #####:   56:}
+        -:   57:
+    #####:   58:vector<int> Algorithms::eulerCircuit(const Graph &g)
+        -:   59:{
+    #####:   60:    vector<int> path;
+    #####:   61:    if (!hasEulerCircuit(g))
+    #####:   62:        return path;
+    #####:   63:    vector<vector<int>> m = g.getMatrix();
+    #####:   64:    int V = g.vertexCount();
+    #####:   65:    int start = 0;
+    #####:   66:    for (int i = 0; i < V; ++i)
+        -:   67:    {
+    #####:   68:        int deg = 0;
+    #####:   69:        for (int j = 0; j < V; ++j)
+    #####:   70:            deg += m[i][j] != 0;
+    #####:   71:        if (deg > 0)
+        -:   72:        {
+    #####:   73:            start = i;
+    #####:   74:            break;
+        -:   75:        }
+        -:   76:    }
+    #####:   77:    vector<int> st;
+    #####:   78:    st.push_back(start);
+    #####:   79:    while (!st.empty())
+        -:   80:    {
+    #####:   81:        int u = st.back();
+    #####:   82:        int v = -1;
+    #####:   83:        for (int j = 0; j < V; ++j)
+        -:   84:        {
+    #####:   85:            if (m[u][j])
+        -:   86:            {
+    #####:   87:                v = j;
+    #####:   88:                break;
+        -:   89:            }
+        -:   90:        }
+    #####:   91:        if (v != -1)
+        -:   92:        {
+    #####:   93:            m[u][v] = 0;
+    #####:   94:            if (!g.directed())
+    #####:   95:                m[v][u] = 0;
+    #####:   96:            st.push_back(v);
+        -:   97:        }
+        -:   98:        else
+        -:   99:        {
+    #####:  100:            path.push_back(u);
+    #####:  101:            st.pop_back();
+        -:  102:        }
+        -:  103:    }
+    #####:  104:    reverse(path.begin(), path.end());
+    #####:  105:    return path;
+    #####:  106:}
+        -:  107:
+        -:  108:
+        -:  109:
+        -:  110:// ===== graph.cpp (small robustness tweak for weights) =====
+        -:  111:// Replace the addEdge function body with this safer logic if you like:
+        -:  112:/*
+        -:  113:bool Graph::addEdge(int u, int v, int weight) {
+        -:  114:    if (u < 0 || u >= V || v < 0 || v >= V) return false;
+        -:  115:    if (u == v) return false; // no self-loops for simple graphs
+        -:  116:    if (adjMatrix[u][v] != 0) return false; // already exists
+        -:  117:    adjMatrix[u][v] = weight;
+        -:  118:    if (!isDirected) adjMatrix[v][u] = weight;
+        -:  119:    return true;
+        -:  120:}
+        -:  121:*/

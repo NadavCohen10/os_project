@@ -1,0 +1,69 @@
+        -:    0:Source:AlgorithmStrategies.cpp
+        -:    1:#include "AlgorithmStrategies.h"
+        -:    2:#include "Algorithms.h"
+        -:    3:#include "graph.h"
+        -:    4:#include <string>
+        -:    5:#include <sstream>
+        -:    6:#include <vector>
+        -:    7:#include <algorithm>
+        -:    8:#include <numeric>
+        -:    9:#include "algoMST.h"
+        -:   10:#include "algoSCC.h"
+        -:   11:#include "algoCliques.h"
+        -:   12:
+        -:   13:using std::string; using std::ostringstream;
+        -:   14:
+        2:   15:std::string MSTStrategy::run(const Graph& g) {
+        2:   16:    long long w = algoMST::mstWeight(g);
+       2*:   17:    if (w < 0) return "MST: graph is not connected (no spanning tree).\n";
+        4:   18:    return "MST total weight = " + std::to_string(w) + "\n";
+        -:   19:}
+        -:   20:
+        2:   21:std::string SCCStrategy::run(const Graph& g) {
+        2:   22:    auto comp = algoSCC::scc(g);
+       2*:   23:    int num = comp.empty()? 0 : (*std::max_element(comp.begin(), comp.end()) + 1);
+        2:   24:    ostringstream out;
+        2:   25:    out << "SCC components = " << num << "\n";
+       15:   26:    for (size_t i=0;i<comp.size();++i) out << "  node " << i << " -> comp " << comp[i] << "\n";
+        4:   27:    return out.str();
+        2:   28:}
+        -:   29:
+        2:   30:std::string CountCliquesStrategy::run(const Graph& g) {
+        2:   31:    long long c = algoCliques::countCliques(g); // לפי המימוש שלך—קליקות ממקסימליות
+        4:   32:    return "Number of maximal cliques = " + std::to_string(c) + "\n";
+        -:   33:}
+        -:   34:
+        2:   35:std::string MaxCliqueStrategy::run(const Graph& g) {
+        2:   36:    auto best = algoCliques::maxClique(g);
+        2:   37:    ostringstream out;
+        2:   38:    out << "Maximum clique size = " << best.size() << "\n{ ";
+       11:   39:    for (size_t i=0;i<best.size();++i) out << best[i] << (i+1<best.size()? ", ":" ");
+        2:   40:    out << "}\n";
+        4:   41:    return out.str();
+        2:   42:}
+        -:   43:
+        2:   44:std::string HasEulerCircuitStrategy::run(const Graph& g) {
+        2:   45:    bool hasEulerCircuit = Algorithms::hasEulerCircuit(g);
+        2:   46:    if(hasEulerCircuit)
+    #####:   47:        return "there is Euler Circuit in the graph\n";
+        2:   48:    return "there is not Euler Circuit in the graph\n";
+        -:   49:}
+        -:   50:
+        2:   51:std::string EulerCircuitStrategy::run(const Graph& g) {
+        2:   52:    std::ostringstream out;
+        -:   53:
+        2:   54:    if (!Algorithms::hasEulerCircuit(g)) {
+        2:   55:        out << "Euler circuit: NONE\n";
+        2:   56:        return out.str();
+        -:   57:    }
+        -:   58:
+    #####:   59:    auto path = Algorithms::eulerCircuit(g);
+    #####:   60:    out << "Euler circuit length = " << path.size() << "\n";
+    #####:   61:    out << "{ ";
+    #####:   62:    for (size_t i = 0; i < path.size(); ++i) {
+    #####:   63:        out << path[i] << (i + 1 < path.size() ? " -> " : " ");
+        -:   64:    }
+    #####:   65:    out << "}\n";
+    #####:   66:    return out.str();
+       2*:   67:}
+        -:   68:

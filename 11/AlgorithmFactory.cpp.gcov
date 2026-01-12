@@ -1,0 +1,37 @@
+        -:    0:Source:AlgorithmFactory.cpp
+        -:    1:#include "AlgorithmFactory.h"
+        -:    2:#include "AlgorithmStrategies.h"
+        -:    3:#include <algorithm>
+        -:    4:#include <cctype>
+        -:    5:#include <memory>
+        -:    6:
+        -:    7:
+        -:    8:using namespace std;
+       12:    9:static string norm(string s){
+       12:   10:    s.erase(std::remove_if(s.begin(), s.end(), ::isspace), s.end());
+       12:   11:    std::transform(s.begin(), s.end(), s.begin(), ::toupper);
+       12:   12:    return s;
+        -:   13:}
+        -:   14:
+       12:   15:std::unique_ptr<AlgorithmStrategy> AlgorithmFactory::create(AlgorithmKind kind){
+       12:   16:    switch (kind){
+        2:   17:        case AlgorithmKind::MST:             return make_unique<MSTStrategy>();
+        2:   18:        case AlgorithmKind::SCC:             return make_unique<SCCStrategy>();
+        2:   19:        case AlgorithmKind::CountCliques:    return make_unique<CountCliquesStrategy>();
+        2:   20:        case AlgorithmKind::MaxClique:       return make_unique<MaxCliqueStrategy>();
+        2:   21:        case AlgorithmKind::HasEulerCircuit: return make_unique<HasEulerCircuitStrategy>();
+        2:   22:        case AlgorithmKind::EulerCircuit:    return make_unique<EulerCircuitStrategy>();
+    #####:   23:        default:                             return nullptr;
+        -:   24:    }
+        -:   25:}
+        -:   26:
+       12:   27:std::unique_ptr<AlgorithmStrategy> AlgorithmFactory::create(const std::string& name){
+       12:   28:    string k = norm(name);
+       12:   29:    if (k=="MST")               return create(AlgorithmKind::MST);
+       10:   30:    if (k=="SCC")               return create(AlgorithmKind::SCC);
+        8:   31:    if (k=="NUMOFCLIQUES")      return create(AlgorithmKind::CountCliques);
+        6:   32:    if (k=="MAXCLIQUE")         return create(AlgorithmKind::MaxClique);
+        4:   33:    if (k=="HASEULERCIRCUIT")   return create(AlgorithmKind::HasEulerCircuit);
+        2:   34:    if (k=="EULERCIRCUIT")      return create(AlgorithmKind::EulerCircuit);
+    #####:   35:    return nullptr;
+       12:   36:}

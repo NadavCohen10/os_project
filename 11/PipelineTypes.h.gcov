@@ -1,0 +1,17 @@
+        -:    0:Source:PipelineTypes.h
+        -:    1:#pragma once
+        -:    2:#include <string>
+        -:    3:#include "graph.h"
+        -:    4:
+        -:    5:struct Request {
+        -:    6:    int client_fd;       // Socket FD
+        -:    7:    Graph g;             // גרף
+        -:    8:    std::string result;  // תוצאות מצטברות לפלט
+        -:    9:    unsigned long req_id;// מזהה בקשה
+        -:   10:
+        -:   11:    Request(int fd, const Graph& graph, unsigned long id)
+        -:   12:        : client_fd(fd), g(graph), req_id(id) {}
+        -:   13:
+        2:   14:    Request(int fd, Graph&& graph, unsigned long id)
+        2:   15:        : client_fd(fd), g(std::move(graph)), req_id(id) {}
+        -:   16:};

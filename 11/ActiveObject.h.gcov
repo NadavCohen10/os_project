@@ -1,0 +1,47 @@
+        -:    0:Source:ActiveObject.h
+        -:    1:#pragma once
+        -:    2:#include <thread>
+        -:    3:#include <functional>
+        -:    4:#include <atomic>
+        -:    5:#include "ThreadSafeQueue.h"
+        -:    6:
+        -:    7:template<typename Msg>
+        -:    8:class ActiveObject {
+        -:    9:public:
+        -:   10:    using Processor = std::function<void(Msg&&, ThreadSafeQueue<Msg>* out)>;
+        -:   11:
+        -:   12:private:
+        -:   13:    ThreadSafeQueue<Msg>* in;
+        -:   14:    ThreadSafeQueue<Msg>* out;
+        -:   15:    Processor proc;
+        -:   16:    std::thread th;
+        -:   17:    std::atomic<bool> running{false};
+        -:   18:
+        -:   19:public:
+        7:   20:    ActiveObject(ThreadSafeQueue<Msg>* inQ,
+        -:   21:                 ThreadSafeQueue<Msg>* outQ,
+        -:   22:                 Processor p)
+        7:   23:        : in(inQ), out(outQ), proc(std::move(p)) {}
+        -:   24:
+        7:   25:    void start() {
+        7:   26:        running = true;
+       14:   27:        th = std::thread([this]{
+       42:   28:            while (running) {
+       21:   29:                auto item = in->pop();
+       21:   30:                if (!item.has_value()) break;
+       14:   31:                proc(std::move(*item), out);
+        -:   32:            }
+        7:   33:            if (out) out->close();
+        -:   34:        });
+        7:   35:    }
+        -:   36:
+        -:   37:    void stop() {
+        -:   38:        running = false;
+        -:   39:        if (in) in->close();
+        -:   40:    }
+        -:   41:
+        7:   42:    void join() { if (th.joinable()) th.join(); }
+        -:   43:};
+        -:   44:
+        -:   45:
+        -:   46:

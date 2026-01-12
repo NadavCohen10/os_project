@@ -1,0 +1,42 @@
+        -:    0:Source:ThreadSafeQueue.h
+        -:    1:#pragma once
+        -:    2:#include <queue>
+        -:    3:#include <mutex>
+        -:    4:#include <condition_variable>
+        -:    5:#include <optional>
+        -:    6:
+        -:    7:template<typename T>
+        -:    8:class ThreadSafeQueue {
+        -:    9:    std::queue<T> q;
+        -:   10:    std::mutex m;
+        -:   11:    std::condition_variable cv;
+        -:   12:    bool closed = false;
+        -:   13:
+        -:   14:public:
+       14:   15:    void push(T v) {
+        -:   16:        {
+       14:   17:            std::lock_guard<std::mutex> lk(m);
+      14*:   18:            if (closed) return;
+       14:   19:            q.push(std::move(v));
+       14:   20:        }
+       14:   21:        cv.notify_one();
+        -:   22:    }
+        -:   23:
+        -:   24:    // returns std::nullopt if queue is closed and empty
+       21:   25:    std::optional<T> pop() {
+       21:   26:        std::unique_lock<std::mutex> lk(m);
+       63:   27:        cv.wait(lk, [&]{ return closed || !q.empty(); });
+       21:   28:        if (q.empty()) return std::nullopt;
+       14:   29:        T v = std::move(q.front());
+       14:   30:        q.pop();
+       14:   31:        return v;
+       21:   32:    }
+        -:   33:
+        7:   34:    void close() {
+        -:   35:        {
+        7:   36:            std::lock_guard<std::mutex> lk(m);
+        7:   37:            closed = true;
+        7:   38:        }
+        7:   39:        cv.notify_all();
+        7:   40:    }
+        -:   41:};

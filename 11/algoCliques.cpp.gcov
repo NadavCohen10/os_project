@@ -1,0 +1,86 @@
+        -:    0:Source:algoCliques.cpp
+        -:    1:// ===== algoCliques.cpp =====
+        -:    2:#include "algoCliques.h"
+        -:    3:#include "graph.h"
+        -:    4:#include <algorithm>
+        -:    5:#include <stack>
+        -:    6:#include <numeric>
+        -:    7:
+        -:    8:
+        -:    9:
+        -:   10:// ---------- 3) Count cliques & 4) Max clique (Bron–Kerbosch) ----------
+      202:   11:static inline bool isEdge(const vector<vector<int>> &adj, int a, int b) { return adj[a][b] != 0; }
+        -:   12:
+       40:   13:void algoCliques::bronKerbosch(const vector<vector<int>> &adj, vector<int> &R, vector<int> &P, vector<int> &X,
+        -:   14:                              long long &count, vector<int> &best)
+        -:   15:{
+       40:   16:    if (P.empty() && X.empty())
+        -:   17:    {
+        -:   18:        // R is a maximal clique
+       12:   19:        count++; // counting maximal cliques; to count all cliques you would enumerate subsets differently
+       12:   20:        if ((int)R.size() > (int)best.size())
+        4:   21:            best = R;
+       12:   22:        return;
+        -:   23:    }
+        -:   24:    // choose a pivot u from P∪X to reduce branches
+       28:   25:    int u = -1;
+        -:   26:    {
+       28:   27:        vector<int> UX = P;
+       28:   28:        UX.insert(UX.end(), X.begin(), X.end());
+       28:   29:        if (!UX.empty())
+       28:   30:            u = UX[0];
+       28:   31:    }
+       28:   32:    vector<int> PwithoutNu; // P \ N(u)
+       28:   33:    if (u == -1)
+    #####:   34:        PwithoutNu = P;
+        -:   35:    else
+        -:   36:    {
+      108:   37:        for (int v : P)
+       80:   38:            if (!isEdge(adj, u, v))
+       36:   39:                PwithoutNu.push_back(v);
+        -:   40:    }
+       64:   41:    for (int v : PwithoutNu)
+        -:   42:    {
+        -:   43:        // R' = R ∪ {v}
+       36:   44:        R.push_back(v);
+       36:   45:        vector<int> Pn, Xn;
+      148:   46:        for (int w : P)
+      112:   47:            if (isEdge(adj, v, w))
+       54:   48:                Pn.push_back(w);
+       46:   49:        for (int w : X)
+       10:   50:            if (isEdge(adj, v, w))
+    #####:   51:                Xn.push_back(w);
+       36:   52:        bronKerbosch(adj, R, Pn, Xn, count, best);
+       36:   53:        R.pop_back();
+        -:   54:        // move v from P to X
+       36:   55:        P.erase(find(P.begin(), P.end(), v));
+       36:   56:        X.push_back(v);
+       36:   57:    }
+       28:   58:}
+        -:   59:
+        2:   60:long long algoCliques::countCliques(const Graph &g)
+        -:   61:{
+        -:   62:    // We will count MAXIMAL cliques via Bron–Kerbosch (common interpretation in assignments).
+        -:   63:    // If you prefer counting ALL cliques, this can be changed, but complexity explodes.
+        2:   64:    const auto &M = g.getMatrix();
+        2:   65:    int n = g.vertexCount();
+        4:   66:    vector<int> R, P(n), X;
+        2:   67:    iota(P.begin(), P.end(), 0);
+        2:   68:    long long count = 0;
+        2:   69:    vector<int> dummy;
+        2:   70:    bronKerbosch(M, R, P, X, count, dummy);
+        2:   71:    return count;
+        2:   72:}
+        -:   73:
+        2:   74:vector<int> algoCliques::maxClique(const Graph &g)
+        -:   75:{
+        2:   76:    const auto &M = g.getMatrix();
+        2:   77:    int n = g.vertexCount();
+        4:   78:    vector<int> R, P(n), X;
+        2:   79:    iota(P.begin(), P.end(), 0);
+        2:   80:    long long count = 0;
+        2:   81:    vector<int> best;
+        2:   82:    bronKerbosch(M, R, P, X, count, best);
+        2:   83:    sort(best.begin(), best.end());
+        4:   84:    return best;
+        2:   85:}

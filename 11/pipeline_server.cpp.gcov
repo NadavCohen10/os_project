@@ -1,0 +1,219 @@
+        -:    0:Source:pipeline_server.cpp
+        -:    1:#include <iostream>
+        -:    2:#include <sys/socket.h>
+        -:    3:#include <netinet/in.h>
+        -:    4:#include <unistd.h>
+        -:    5:#include <arpa/inet.h>
+        -:    6:#include <random>
+        -:    7:#include <algorithm>
+        -:    8:#include <sstream>
+        -:    9:#include <cstring>
+        -:   10:#include <vector>
+        -:   11:#include <chrono>
+        -:   12:#include <thread>
+        -:   13:#include <atomic>
+        -:   14:#include <csignal>
+        -:   15:#include <cerrno>
+        -:   16:
+        -:   17:#include "graph.h"
+        -:   18:#include "AlgorithmFactory.h"
+        -:   19:#include "AlgorithmStrategy.h"
+        -:   20:#include "Algorithms.h"
+        -:   21:
+        -:   22:#include "ThreadSafeQueue.h"
+        -:   23:#include "ActiveObject.h"
+        -:   24:#include "PipelineTypes.h"
+        -:   25:
+        -:   26:#define PORT 8080
+        -:   27:using namespace std;
+        -:   28:
+        -:   29:// ====== Debug control ======
+        -:   30:#ifndef AO_STAGE_DELAY_MS
+        -:   31:#define AO_STAGE_DELAY_MS 0
+        -:   32:#endif
+        -:   33:
+        -:   34:static std::atomic<unsigned long> GREQ{0};
+        -:   35:static volatile std::sig_atomic_t g_stop = 0;
+        -:   36:static int g_listen_fd = -1;
+        -:   37:
+        1:   38:static void on_sigint(int) {
+        1:   39:    g_stop = 1;
+        1:   40:    if (g_listen_fd >= 0) {
+        1:   41:        ::close(g_listen_fd); // יגרום ל-accept להיכשל
+        1:   42:        g_listen_fd = -1;
+        -:   43:    }
+        1:   44:}
+        -:   45:
+       30:   46:static void log(const char* tag, unsigned long id, const char* msg){
+       30:   47:    std::cout << "[" << tag << "][req " << id << "] " << msg << std::endl;
+       30:   48:}
+        -:   49:
+       12:   50:static inline void maybe_delay() {
+        -:   51:#if AO_STAGE_DELAY_MS > 0
+        -:   52:    std::this_thread::sleep_for(std::chrono::milliseconds(AO_STAGE_DELAY_MS));
+        -:   53:#endif
+       12:   54:}
+        -:   55:
+       12:   56:static string run_algo_by_name(const string& name, const Graph& g) {
+       12:   57:    auto strat = AlgorithmFactory::create(name);
+      12*:   58:    if (!strat) return "Error: unknown algorithm '" + name + "'\n";
+       12:   59:    return strat->run(g);
+       12:   60:}
+        -:   61:
+        -:   62:// ===== Build random graph =====
+        2:   63:static Graph build_random_graph(int V, int E, unsigned int S) {
+        2:   64:    mt19937 gen(S);
+        2:   65:    vector<pair<int,int>> all;
+        2:   66:    all.reserve((size_t)V*(V-1)/2);
+       15:   67:    for (int i=0;i<V;i++)
+       49:   68:        for (int j=i+1;j<V;j++)
+       36:   69:            all.push_back({i,j});
+        2:   70:    shuffle(all.begin(), all.end(), gen);
+        2:   71:    Graph g(V, false);
+        2:   72:    int added=0;
+       27:   73:    for (size_t i=0;i<all.size() && added<E; ++i) {
+       25:   74:        if (g.addEdge(all[i].first, all[i].second, 1)) added++;
+        -:   75:    }
+        4:   76:    return g;
+        2:   77:}
+        -:   78:
+        2:   79:static bool parse_request_build_graph(const string& req, Graph& outG) {
+        2:   80:    if (req == "auto\n") {
+        1:   81:        random_device rd;
+        1:   82:        mt19937 gen(rd());
+        1:   83:        uniform_int_distribution<> dV(1, 10);
+        1:   84:        int V = dV(gen);
+        1:   85:        long long maxE = 1LL*V*(V-1)/2;
+        1:   86:        uniform_int_distribution<long long> dE(0, maxE);
+        1:   87:        int E = (int)dE(gen);
+        1:   88:        unsigned int S = (unsigned int)(E*V);
+        1:   89:        outG = build_random_graph(V,E,S);
+        1:   90:        return true;
+        1:   91:    } else {
+        1:   92:        istringstream iss(req);
+        1:   93:        int V,E; unsigned int S; string A;
+       1*:   94:        if (!(iss >> V >> E >> S)) return false;
+        1:   95:        long long maxEdges = 1LL*V*(V-1)/2;
+       1*:   96:        if (E > maxEdges || V <= 0 || E < 0) return false;
+        1:   97:        outG = build_random_graph(V,E,S);
+        1:   98:        return true;
+        1:   99:    }
+        -:  100:}
+        -:  101:
+        -:  102:// ===== Pipeline stages =====
+        2:  103:static void stage_mst(Request&& r, ThreadSafeQueue<Request>* out) {
+        2:  104:    log("AO1-MST", r.req_id, "start");
+        2:  105:    maybe_delay();
+        2:  106:    r.result += run_algo_by_name("MST", r.g);
+        2:  107:    log("AO1-MST", r.req_id, "done -> next");
+        2:  108:    if (out) out->push(std::move(r));
+        2:  109:}
+        2:  110:static void stage_scc(Request&& r, ThreadSafeQueue<Request>* out) {
+        2:  111:    log("AO2-SCC", r.req_id, "start");
+        2:  112:    maybe_delay();
+        2:  113:    r.result += run_algo_by_name("SCC", r.g);
+        2:  114:    log("AO2-SCC", r.req_id, "done -> next");
+        2:  115:    if (out) out->push(std::move(r));
+        2:  116:}
+        2:  117:static void stage_countCliques(Request&& r, ThreadSafeQueue<Request>* out) {
+        2:  118:    log("AO3-COUNT", r.req_id, "start");
+        2:  119:    maybe_delay();
+        2:  120:    r.result += run_algo_by_name("NUMOFCLIQUES", r.g);
+        2:  121:    log("AO3-COUNT", r.req_id, "done -> next");
+        2:  122:    if (out) out->push(std::move(r));
+        2:  123:}
+        2:  124:static void stage_maxClique(Request&& r, ThreadSafeQueue<Request>* out) {
+        2:  125:    log("AO4-MAX", r.req_id, "start");
+        2:  126:    maybe_delay();
+        2:  127:    r.result += run_algo_by_name("MAXCLIQUE", r.g);
+        2:  128:    log("AO4-MAX", r.req_id, "done -> next");
+        2:  129:    if (out) out->push(std::move(r));
+        2:  130:}
+        2:  131:static void stage_hasEuler(Request&& r, ThreadSafeQueue<Request>* out) {
+        2:  132:    log("AO5-HAS-EULER", r.req_id, "start");
+        2:  133:    maybe_delay();
+        2:  134:    r.result += run_algo_by_name("HASEULERCIRCUIT", r.g);
+        2:  135:    log("AO5-HAS-EULER", r.req_id, "done -> next");
+        2:  136:    if (out) out->push(std::move(r));
+        2:  137:}
+        2:  138:static void stage_euler(Request&& r, ThreadSafeQueue<Request>* out) {
+        2:  139:    log("AO6-EULER", r.req_id, "start");
+        2:  140:    maybe_delay();
+        2:  141:    r.result += run_algo_by_name("EULERCIRCUIT", r.g);
+        2:  142:    log("AO6-EULER", r.req_id, "done -> sink");
+        2:  143:    if (out) out->push(std::move(r));
+        2:  144:}
+        2:  145:static void stage_sink(Request&& r, ThreadSafeQueue<Request>* /*out*/) {
+        2:  146:    log("SINK", r.req_id, "sending reply to client & closing socket");
+        2:  147:    r.result += "\n-- END-OF-PIPELINE --\n";
+        2:  148:    ::send(r.client_fd, r.result.c_str(), r.result.size(), 0);
+        2:  149:    ::close(r.client_fd);
+        2:  150:}
+        -:  151:
+        -:  152:// ===== main =====
+        1:  153:int main() {
+        1:  154:    std::signal(SIGINT, on_sigint);
+        -:  155:
+        1:  156:    int srv = ::socket(AF_INET, SOCK_STREAM, 0);
+        1:  157:    g_listen_fd = srv;
+        1:  158:    int opt=1;
+        1:  159:    setsockopt(srv, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt));
+        1:  160:    sockaddr_in addr{};
+        1:  161:    addr.sin_family = AF_INET;
+        1:  162:    addr.sin_addr.s_addr = INADDR_ANY;
+        1:  163:    addr.sin_port = htons(PORT);
+        1:  164:    bind(srv, (sockaddr*)&addr, sizeof(addr));
+        1:  165:    listen(srv, 128);
+        1:  166:    std::cout << "Pipeline server listening on " << PORT << std::endl;
+        -:  167:
+        1:  168:    ThreadSafeQueue<Request> q1, q2, q3, q4, q5, q6, qSink;
+        -:  169:
+        1:  170:    ActiveObject<Request> S1(&q1,  &q2,  stage_mst);
+        1:  171:    ActiveObject<Request> S2(&q2,  &q3,  stage_scc);
+        1:  172:    ActiveObject<Request> S3(&q3,  &q4,  stage_countCliques);
+        1:  173:    ActiveObject<Request> S4(&q4,  &q5,  stage_maxClique);
+        1:  174:    ActiveObject<Request> S5(&q5,  &q6,  stage_hasEuler);
+        1:  175:    ActiveObject<Request> S6(&q6,  &qSink, stage_euler);
+        1:  176:    ActiveObject<Request> Sink(&qSink, nullptr, stage_sink);
+        -:  177:
+        1:  178:    S1.start(); S2.start(); S3.start(); S4.start(); S5.start(); S6.start(); Sink.start();
+        -:  179:
+        -:  180:    for (;;) {
+       3*:  181:        if (g_stop) break;
+        3:  182:        sockaddr_in cli{}; socklen_t len=sizeof(cli);
+        3:  183:        int cfd = ::accept(srv, (sockaddr*)&cli, &len);
+       3*:  184:        if (cfd < 0) {
+        1:  185:            if (g_stop) break;
+    #####:  186:            if (errno == EINTR) continue;
+    #####:  187:            continue;
+        -:  188:        }
+        -:  189:
+        2:  190:        char buf[1024]={0};
+        2:  191:        ssize_t n = ::read(cfd, buf, sizeof(buf)-1);
+       2*:  192:        if (n <= 0) { ::close(cfd); continue; }
+        2:  193:        buf[n] = '\0';
+        2:  194:        std::string req = buf;
+        -:  195:
+        2:  196:        Graph g(1,false);
+        2:  197:        unsigned long id = ++GREQ;
+        2:  198:        log("ACCEPT", id, "new connection, parsing request");
+        -:  199:
+        2:  200:        if (!parse_request_build_graph(req, g)) {
+    #####:  201:            std::string err = "Bad request or invalid edges count.\n";
+    #####:  202:            ::send(cfd, err.c_str(), err.size(), 0);
+    #####:  203:            ::close(cfd);
+    #####:  204:            log("ACCEPT", id, "bad request, closed");
+    #####:  205:            continue;
+    #####:  206:        }
+        2:  207:        log("ACCEPT", id, "pushed to q1");
+        2:  208:        q1.push(Request{cfd, std::move(g), id});
+        4:  209:    }
+        -:  210:
+        1:  211:    q1.close(); // יגרור סגירה של כל השרשרת
+        1:  212:    S1.join(); S2.join(); S3.join(); S4.join(); S5.join(); S6.join(); Sink.join();
+        -:  213:
+        1:  214:    if (srv >= 0) ::close(srv);
+        1:  215:    g_listen_fd = -1;
+        1:  216:    std::cout << "Server stopped" << std::endl;
+        1:  217:    return 0;
+        1:  218:}

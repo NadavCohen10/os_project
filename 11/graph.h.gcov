@@ -1,0 +1,67 @@
+        -:    0:Source:graph.h
+        -:    1:#pragma once
+        -:    2:#include <vector>
+        -:    3:using namespace std;
+        -:    4:
+        -:    5:class Graph {
+        -:    6:    int V; // number of vertices
+        -:    7:    vector<vector<int>> adjMatrix;
+        -:    8:    bool isDirected;
+        -:    9:
+        -:   10:public:
+        -:   11:    Graph(int V, bool isDirected = false);
+        -:   12:
+        -:   13:    // Add edge between u and v
+        -:   14:    bool addEdge(int u, int v, int weight = 1);
+        -:   15:
+        -:   16:    // Remove edge between u and v
+        -:   17:    void removeEdge(int u, int v);
+        -:   18:
+        -:   19:    // Print matrix
+        -:   20:    void printGraph();
+        -:   21:
+        -:   22:    // Degree of a vertex
+        -:   23:    int degree(int u);
+        -:   24:
+        -:   25:    // Get number of vertices
+      12*:   26:    int vertexCount() const { return V; }
+------------------
+_ZNK5Graph11vertexCountEv:
+       12:   26:    int vertexCount() const { return V; }
+------------------
+_ZNK5Graph11vertexCountEv:
+    #####:   26:    int vertexCount() const { return V; }
+------------------
+_ZNK5Graph11vertexCountEv:
+    #####:   26:    int vertexCount() const { return V; }
+------------------
+_ZNK5Graph11vertexCountEv:
+    #####:   26:    int vertexCount() const { return V; }
+------------------
+        -:   27:
+        -:   28:    // Get adjacency matrix
+      12*:   29:    const vector<vector<int>>& getMatrix() const { return adjMatrix; }
+------------------
+_ZNK5Graph9getMatrixEv:
+       12:   29:    const vector<vector<int>>& getMatrix() const { return adjMatrix; }
+------------------
+_ZNK5Graph9getMatrixEv:
+    #####:   29:    const vector<vector<int>>& getMatrix() const { return adjMatrix; }
+------------------
+_ZNK5Graph9getMatrixEv:
+    #####:   29:    const vector<vector<int>>& getMatrix() const { return adjMatrix; }
+------------------
+_ZNK5Graph9getMatrixEv:
+    #####:   29:    const vector<vector<int>>& getMatrix() const { return adjMatrix; }
+------------------
+        -:   30:
+        -:   31:    // Check if the graph is directed
+       2*:   32:    bool directed() const { return isDirected; }
+------------------
+_ZNK5Graph8directedEv:
+        2:   32:    bool directed() const { return isDirected; }
+------------------
+_ZNK5Graph8directedEv:
+    #####:   32:    bool directed() const { return isDirected; }
+------------------
+        -:   33:};
