@@ -1,0 +1,90 @@
+        -:    0:Source:main.cpp
+        -:    1:#include <iostream>
+        -:    2:#include "graph.h"
+        -:    3:#include "Algorithms.h"
+        -:    4:#include "getopt.h"
+        -:    5:#include <cstdlib>
+        -:    6:#include <utility>
+        -:    7:#include <random>
+        -:    8:#include <algorithm>
+        -:    9:using namespace std;
+        -:   10:
+        -:   11:// Print usage instructions and exit
+    #####:   12:static void usage(const char* prog) {
+        -:   13:    cerr << "Usage: " << prog << " -v <vertices> -e <edges> -s <seed>\n"
+    #####:   14:         << "Example: " << prog << " -v 6 -e 8 -s 1234\n";
+    #####:   15:    exit(1);
+        -:   16:}
+        -:   17:
+        1:   18:int main(int argc, char* argv[]) {
+        -:   19:
+        1:   20:    int V = -1;        // Number of vertices
+        1:   21:    int E = -1;        // Number of edges (undirected)
+        1:   22:    unsigned int S = 0; // Seed for random generator
+        -:   23:
+        -:   24:    // Parse command line arguments
+        -:   25:    int opt;
+        4:   26:    while ((opt = getopt(argc, argv, "v:e:s:")) != -1) {
+        3:   27:        switch (opt) {
+        1:   28:            case 'v': 
+        1:   29:                V = atoi(optarg); // Set number of vertices
+        1:   30:                break;
+        1:   31:            case 'e': 
+        1:   32:                E = atoi(optarg); // Set number of edges
+        1:   33:                break;
+        1:   34:            case 's': 
+        1:   35:                S = static_cast<unsigned int>(strtoul(optarg, nullptr, 10)); // Set seed
+        1:   36:                break;
+    #####:   37:            default: 
+    #####:   38:                usage(argv[0]); // Print usage if invalid option
+        -:   39:        }
+        -:   40:    }
+       1*:   41:    if (V <= 0 || E < 0) usage(argv[0]); // Check for valid input
+        -:   42:
+        -:   43:    // Check if the number of edges is valid for a simple undirected graph
+        1:   44:    long long maxEdges = 1LL * V * (V - 1) / 2;
+        1:   45:    if (E > maxEdges) {
+    #####:   46:        cerr << "Error: requested edges (" << E << ") exceed maximum for simple undirected graph ("
+    #####:   47:             << maxEdges << ").\n";
+    #####:   48:        return 1;
+        -:   49:    }
+        -:   50:
+        1:   51:    mt19937 gen(S); // Random number generator with seed S
+        -:   52:    
+        2:   53:    vector<pair<int, int>> AllEdges;
+        -:   54:    // Generate all possible edges (including self-loops)
+        4:   55:    for(int i = 0 ; i < V; i++)
+        -:   56:    {
+       12:   57:        for(int j = 0; j<V; j++)
+        -:   58:        {
+        9:   59:            AllEdges.push_back({i,j}); // Add edge (i, j) to list
+        -:   60:        }
+        -:   61:    }
+        -:   62:
+        -:   63:    // Shuffle edges randomly
+        1:   64:    shuffle(AllEdges.begin(), AllEdges.end(), gen);
+        -:   65:
+        1:   66:    Graph g(V); // Create an undirected graph with V vertices
+        -:   67:
+        1:   68:    int added = 0;
+        -:   69:    // Add edges to the graph until reaching E edges
+        7:   70:    for (size_t i = 0; i < AllEdges.size() && added < E; ++i) {
+        6:   71:        int u = AllEdges[i].first; 
+        6:   72:        int v = AllEdges[i].second;
+        6:   73:        if (g.addEdge(u, v)) // Add edge if possible (no duplicates/self-loops)
+        3:   74:            added++;
+        -:   75:    }
+        1:   76:    g.printGraph(); // Print adjacency matrix
+        -:   77:
+        -:   78:    // Check for Euler circuit and print result
+       1*:   79:    cout << "Has Euler circuit? " << (Algorithms::hasEulerCircuit(g) ? "YES" : "NO") << "\n";
+        1:   80:    if (Algorithms::hasEulerCircuit(g)) {
+        1:   81:        auto cyc = Algorithms::eulerCircuit(g); // Get Euler circuit
+        1:   82:        cout << "Euler circuit: ";
+        5:   83:        for (size_t i = 0; i < cyc.size(); ++i) {
+        4:   84:            cout << cyc[i] << (i + 1 < cyc.size() ? " -> " : "\n"); // Print circuit
+        -:   85:        }
+        1:   86:    }
+        1:   87:    return 0;
+        -:   88:}
+        -:   89:

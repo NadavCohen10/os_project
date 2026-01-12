@@ -1,0 +1,109 @@
+        -:    0:Source:Algorithms.cpp
+        -:    1:#include "Algorithms.h"
+        -:    2:#include "graph.h"
+        -:    3:#include <vector>
+        -:    4:#include <stack>
+        -:    5:#include <algorithm>
+        -:    6:using namespace std;
+        -:    7:
+        9:    8:void Algorithms::dfsOnEdges(const vector<vector<int>>& m, int u, vector<int>& vis) {
+        9:    9:    int n = (int)m.size(); // Number of vertices in the graph
+        9:   10:    vis[u] = 1; // Mark current vertex as visited
+       36:   11:    for (int v = 0; v < n; ++v) {
+        -:   12:        // If there is an edge from u to v and v is not visited
+       27:   13:        if (m[u][v] && !vis[v]) 
+        6:   14:            dfsOnEdges(m, v, vis); // Recursively
+        -:   15:    }
+        9:   16:}
+        -:   17:
+        3:   18:bool Algorithms::hasEulerCircuit(const Graph& g) {
+        3:   19:    const auto& M = g.getMatrix(); // Get adjacency matrix of the graph
+        3:   20:    int V = g.vertexCount();       // Number of vertices
+        -:   21:
+        -:   22:    // Check if all vertices have even degree
+       12:   23:    for (int i = 0; i < V; ++i) {
+        9:   24:        int deg = 0;
+       36:   25:        for (int j = 0; j < V; ++j) 
+       27:   26:            deg += M[i][j]; // Sum degree for vertex i
+        9:   27:        if (deg % 2 != 0) 
+    #####:   28:            return false; // If degree is odd, no Euler circuit
+        -:   29:    }
+        -:   30:
+        -:   31:    // Find a starting vertex with degree > 0
+        3:   32:    int start = -1;
+       3*:   33:    for (int i = 0; i < V; ++i) {
+        3:   34:        int deg = 0;
+       12:   35:        for (int j = 0; j < V; ++j) deg += M[i][j];
+        3:   36:        if (deg > 0) { start = i; break; } // First vertex with edges
+        -:   37:    }
+        3:   38:    if (start == -1) {
+        -:   39:        // No edges in the graph, so Euler circuit exists (trivial case)
+    #####:   40:        return true;
+        -:   41:    }
+        -:   42:
+        -:   43:    // Check if all non-zero degree vertices are connected
+        3:   44:    vector<int> vis(V, 0); // Visited array
+        3:   45:    dfsOnEdges(M, start, vis); // DFS from start vertex
+       12:   46:    for (int i = 0; i < V; ++i) {
+        9:   47:        int deg = 0;
+       36:   48:        for (int j = 0; j < V; ++j) 
+       27:   49:            deg += M[i][j];
+       9*:   50:        if (deg > 0 && !vis[i]) 
+    #####:   51:            return false; // Not all vertices are connected
+        -:   52:    }
+        3:   53:    return true; // All conditions for Euler circuit are satisfied
+        3:   54:}
+        -:   55:
+        1:   56:vector<int> Algorithms::eulerCircuit(const Graph& g) {
+        1:   57:    vector<int> path; // Stores the Euler circuit
+        1:   58:    if (!hasEulerCircuit(g)) 
+    #####:   59:        return path; // If no Euler circuit exists, return empty
+        -:   60:
+        1:   61:    vector<vector<int>> m = g.getMatrix(); // Copy of adjacency matrix to modify
+        1:   62:    int V = g.vertexCount(); // Number of vertices
+        -:   63:
+        -:   64:    // Find a starting vertex with degree > 0
+        1:   65:    int start = 0, found = -1;
+       1*:   66:    for (int i = 0; i < V; ++i){
+        1:   67:        int deg = 0;
+        4:   68:        for (int j = 0; j < V; ++j) 
+        3:   69:            deg += m[i][j]; // Calculate degree
+        1:   70:        if (deg > 0){ 
+        1:   71:            found = i; 
+        1:   72:            break; 
+        -:   73:        } // First vertex with edges
+        -:   74:    }
+        1:   75:    if (found != -1) 
+        1:   76:        start = found; // Set start vertex
+        -:   77:
+        1:   78:    stack<int> st; // Stack for Hierholzer's algorithm
+        -:   79:  
+        -:   80:
+        1:   81:    st.push(start); // Begin from start vertex
+        8:   82:    while (!st.empty()) {
+        7:   83:        int u = st.top(); // Current vertex
+        -:   84:
+        7:   85:        int v = -1;
+        -:   86:        // Find a neighbor v of u with an edge
+       22:   87:        for (int j = 0; j < V; ++j) {
+       18:   88:            if (m[u][j]) { 
+        3:   89:                v = j;
+        3:   90:                break; 
+        -:   91:            }
+        -:   92:        }
+        -:   93:
+        7:   94:        if (v != -1) {
+        -:   95:            // Remove the edge u-v from the graph (both directions for undirected)
+        3:   96:            m[u][v] = 0;
+        3:   97:            m[v][u] = 0;
+        3:   98:            st.push(v); // Continue to vertex v
+        -:   99:        } else {
+        -:  100:            // No more edges from u, add u to path and backtrack
+        4:  101:            path.push_back(u);
+        4:  102:            st.pop();
+        -:  103:        }
+        -:  104:    }
+        -:  105:
+        1:  106:    reverse(path.begin(), path.end()); // Reverse to get correct circuit order
+        1:  107:    return path; // Return Euler circuit
+        1:  108:}
